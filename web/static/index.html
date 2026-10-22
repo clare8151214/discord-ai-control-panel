@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#101217">
+  <title>Relay · Discord AI 工作台</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='17' fill='%23b9ed84'/%3E%3Cpath d='M17 17h17a11 11 0 0 1 0 22h-7l17 10M17 17v32' fill='none' stroke='%23101217' stroke-width='7'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <main id="login-screen" class="login-screen" hidden>
+    <div class="login-intro">
+      <span class="brand-symbol" aria-hidden="true">R<span>↗</span></span>
+      <p class="eyebrow">YOUR MODELS. YOUR COMMUNITY.</p>
+      <h1>讓對話，<br>有自己的空間。</h1>
+      <p class="login-description">從本地 Ollama 到雲端模型，在一個工作台連結你的 Discord 機器人。</p>
+      <div class="login-pills"><span>多機器人</span><span>本地與雲端</span><span>自主部署</span></div>
+    </div>
+    <form id="login-form" class="login-card">
+      <div class="wordmark">relay<span> / control</span></div>
+      <h2>登入工作台</h2>
+      <p>使用部署時設定的管理密碼。</p>
+      <label for="login-password">管理密碼</label>
+      <input id="login-password" name="password" type="password" required autocomplete="current-password" placeholder="輸入 CONTROL_PANEL_PASSWORD">
+      <p id="login-error" class="field-error" role="alert"></p>
+      <button id="login-submit" class="button primary" type="submit">進入工作台 <span aria-hidden="true">↗</span></button>
+      <p class="small muted">設定會保存在你的部署環境，API 金鑰不會回傳至瀏覽器。</p>
+    </form>
+  </main>
+
+  <div id="app-screen" class="app-shell" hidden>
+    <aside class="sidebar">
+      <a class="brand" href="#" aria-label="Relay 工作台"><span class="brand-symbol small" aria-hidden="true">R<span>↗</span></span><span>relay<span class="brand-caption">AI WORKSPACE</span></span></a>
+      <div class="sidebar-label"><span>機器人工作區</span><span id="profile-count" class="count">0</span></div>
+      <nav id="profile-list" class="profile-list" aria-label="機器人列表"></nav>
+      <button id="new-profile" class="button sidebar-create" type="button"><span aria-hidden="true">＋</span> 新增機器人</button>
+      <div class="sidebar-bottom">
+        <div class="deployment-note"><span class="live-dot"></span><div>你的部署，自己掌握<span>本地模型 · 雲端 API · Discord</span></div></div>
+        <button id="import-legacy" class="text-button" type="button">↳ 匯入既有 .env 設定</button>
+        <div id="desktop-data" class="desktop-data" hidden><span>本機設定與資料</span><code id="desktop-data-path"></code><span id="desktop-version"></span></div>
+        <button id="logout" class="text-button muted" type="button">登出工作台 <span aria-hidden="true">↗</span></button>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar"><div><span class="muted">工作區</span><span class="breadcrumb-slash">/</span><span id="breadcrumb-name">機器人設定</span></div><span class="topbar-tag"><span class="live-dot"></span><span id="deployment-mode">SELF-HOSTED</span></span></header>
+      <section class="page-header">
+        <div><p class="eyebrow">BOT CONTROL CENTER</p><h1 id="page-title">建立你的第一個機器人</h1><p id="page-description" class="muted">連接模型，設定個性，讓機器人加入你的社群。</p></div>
+        <div class="header-actions"><span id="save-state" class="save-state">尚未儲存</span><button id="save-profile" class="button primary" type="submit" form="profile-form"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 3h10l3 3v11H3V3h1Zm2 0v5h8V3M6 17v-6h8v6"/></svg>儲存設定</button></div>
+      </section>
+
+      <section class="setup-guide" aria-label="快速開始">
+        <div class="setup-intro"><span class="eyebrow">QUICK START</span><span id="setup-caption">不用編輯設定檔，完成三步就能開始。</span></div>
+        <div class="setup-steps">
+          <button class="setup-step" data-setup-step="discord" type="button"><span class="setup-number">1</span><span><strong>貼上 Discord Token</strong><small id="setup-discord-status">驗證身分，取得邀請連結</small></span><span class="setup-check" aria-hidden="true">↗</span></button>
+          <button class="setup-step" data-setup-step="provider" type="button"><span class="setup-number">2</span><span><strong>選模型服務，填 API／IP</strong><small id="setup-provider-status">本機 Ollama 或雲端金鑰都可以</small></span><span class="setup-check" aria-hidden="true">↗</span></button>
+          <button class="setup-step" data-setup-step="launch" type="button"><span class="setup-number">3</span><span><strong>測試模型，儲存並啟動</strong><small id="setup-launch-status">啟動後到 Discord 開始對話</small></span><span class="setup-check" aria-hidden="true">↗</span></button>
+        </div>
+      </section>
+
+      <section class="overview-grid" aria-label="機器人狀態">
+        <div class="overview-card"><span class="stat-icon green" aria-hidden="true">◉</span><div><span class="stat-label">執行狀態</span><strong id="runtime-status">未啟動</strong></div><span id="runtime-dot" class="status-dot"></span></div>
+        <div class="overview-card"><span class="stat-icon purple" aria-hidden="true">◇</span><div><span class="stat-label">預設模型</span><strong id="model-stat">尚未選擇</strong></div></div>
+        <div class="overview-card"><span class="stat-icon blue" aria-hidden="true">⌘</span><div><span class="stat-label">模型供應商</span><strong id="provider-stat">0 個連線</strong></div></div>
+      </section>
+
+      <div id="restart-notice" class="notice" hidden>設定已更新。重新啟動機器人後，新的設定才會生效。</div>
+      <div class="content-layout">
+        <div class="settings-main">
+          <nav class="tabs" aria-label="設定分類">
+            <button class="tab active" data-tab="connection" type="button" aria-selected="true">連線與模型</button>
+            <button class="tab" data-tab="behavior" type="button" aria-selected="false">對話與記憶</button>
+            <button class="tab" data-tab="media" type="button" aria-selected="false">圖片與語音</button>
+            <button class="tab" data-tab="logs" type="button" aria-selected="false">執行日誌</button>
+          </nav>
+
+          <form id="profile-form" novalidate>
+            <div class="tab-panel" data-panel="connection">
+              <section class="panel">
+                <div class="section-heading"><span class="section-number">01</span><div><h2>Discord 連線</h2><p>建立機器人的身分，連結你的 Discord Application。</p></div><span class="section-tag">DISCORD</span></div>
+                <div class="form-grid">
+                  <label class="field">機器人名稱 <span class="required">*</span><input name="name" required maxlength="80" placeholder="例如：社群小助手" autocomplete="off"></label>
+                  <label class="field">Bot Token <span class="required">*</span><span class="secret-input"><input name="discord_token" type="password" placeholder="貼上 Discord Bot Token" autocomplete="new-password"><button class="reveal-secret" type="button" aria-label="顯示或隱藏 Bot Token">顯示</button></span><span id="token-help" class="field-help">Discord Developer Portal → Bot → Reset Token。</span></label>
+                  <label class="field">Application ID <span class="optional">選填</span><input name="application_id" inputmode="numeric" placeholder="留空可自動取得"><span class="field-help">Developer Portal → General Information。</span></label>
+                  <label class="field">開發用 Server ID <span class="optional">選填</span><input name="guild_id" inputmode="numeric" placeholder="留空使用全域指令"><span class="field-help">僅用於快速同步測試伺服器；留空即可跨伺服器使用。</span></label>
+                </div>
+                <div class="discord-actions"><button id="verify-discord" class="button secondary compact" type="button">驗證 Token 並取得邀請連結</button><a id="invite-bot" class="button secondary compact" href="https://discord.com/developers/applications" target="_blank" rel="noopener noreferrer" hidden>邀請 Bot 加入伺服器 ↗</a></div>
+                <p id="discord-verify-result" class="field-help" role="status">貼上 Token 後可自動取得 Application ID，不用手動查找。</p>
+                <div class="toggle-row"><div><label for="message-intent">讀取訊息內容</label><p>在頻道 @Bot、回覆 Bot 及私訊聊天需要此權限；也請在 Developer Portal 開啟 Message Content Intent。</p></div><label class="switch"><input id="message-intent" name="message_content_intent" type="checkbox"><span></span></label></div>
+                <div class="toggle-row"><div><label for="admin-only">僅管理員可更改設定</label><p>限制 Discord 中的模型、提示詞及房間設定指令。</p></div><label class="switch"><input id="admin-only" name="admin_only_settings" type="checkbox"><span></span></label></div>
+              </section>
+
+              <section class="panel">
+                <div class="section-heading"><span class="section-number">02</span><div><h2>模型供應商</h2><p>自由搭配本地模型、OpenAI 相容服務、Gemini 或 Claude。</p></div></div>
+                <div id="provider-list" class="provider-list"></div>
+                <button id="add-provider" class="button add-provider" type="button">＋ 新增模型供應商</button>
+                <div id="container-network-tip" class="tip"><span aria-hidden="true">ⓘ</span><p>Docker／Kubernetes 裡的 <code>localhost</code> 代表容器本身。連線宿主機 Ollama 請用 <code>host.docker.internal:11434</code>，或填入主機的區網 IP；K8s 也可用服務 DNS。</p></div>
+                <div id="desktop-network-tip" class="tip" hidden><span aria-hidden="true">ⓘ</span><p>這台電腦已安裝 Ollama？選「這台電腦」即可。模型在另一台電腦時選「其他電腦」，直接填入 IP，例如 <code>192.168.1.100</code>；Ollama 預設使用 <code>11434</code> 連接埠。</p></div>
+              </section>
+
+              <section class="panel">
+                <div class="section-heading"><span class="section-number">03</span><div><h2>預設模型與連線測試</h2><p>選擇機器人開始對話時使用的模型。</p></div></div>
+                <div class="form-grid">
+                  <label class="field">預設供應商<select id="default-provider" name="default_provider"></select></label>
+                  <label class="field">預設模型<input id="default-model" name="default_model" list="available-models" placeholder="先測試連線，或手動輸入模型名稱" autocomplete="off"><datalist id="available-models"></datalist><span class="field-help">請輸入服務提供的完整模型 ID，例如 gpt-oss:20b。</span></label>
+                </div>
+                <div class="chat-test"><label class="field">試聊訊息<input id="chat-test-message" placeholder="例如：請用繁體中文打個招呼" value="請用繁體中文簡短打個招呼。" maxlength="4000"></label><button id="chat-test" class="button secondary" type="button">測試模型回覆 <span aria-hidden="true">↗</span></button></div>
+                <p class="field-help">測試會實際呼叫所選模型；雲端供應商可能依用量計費。</p>
+                <div id="chat-test-result" class="test-result" role="status" hidden></div>
+              </section>
+            </div>
+
+            <div class="tab-panel" data-panel="behavior" hidden>
+              <section class="panel"><div class="section-heading"><span class="section-number">01</span><div><h2>對話風格</h2><p>設定機器人的語氣與角色；留空使用模型本身的設定。</p></div></div><label class="field">System Prompt <span class="optional">選填</span><textarea name="system_prompt" rows="7" placeholder="例如：你是友善的社群助手，使用繁體中文回答。"></textarea><span class="field-help">這是預設提示詞，各 Discord 房間仍可透過 /system 自行設定。</span></label></section>
+              <section class="panel"><div class="section-heading"><span class="section-number">02</span><div><h2>記憶與生成</h2><p>依照模型能力及主機資源，調整上下文與保存時間。</p></div></div>
+                <div class="form-grid"><label class="field">上下文長度 <span class="unit">tokens</span><input name="context_length" type="number" min="1024" max="262144" step="1" required><span class="field-help">上下文越長，記憶體／顯示記憶體需求越高。</span></label><label class="field">單次回覆上限 <span class="unit">tokens</span><input name="output_tokens" type="number" min="128" max="16384" step="1" required><span class="field-help">不超過上下文長度的一半。</span></label><label class="field">歷史保存天數 <span class="unit">天</span><input name="retention_days" type="number" min="1" max="365" step="1" required><span class="field-help">自動刪除 SQLite 中超過此天數的對話紀錄。</span></label><label class="field">自動摘要門檻 <span class="unit">0–1</span><input name="compact_trigger" type="number" min="0.4" max="0.9" step="0.05" required><span class="field-help">例如 0.7 代表記憶用量達 70% 時整理摘要。</span></label></div>
+                <div class="tip"><span aria-hidden="true">ⓘ</span><p>每個頻道、討論串與私訊都有獨立記憶。使用 <code>/room_status</code> 查看用量、<code>/room_compact</code> 整理劇情、<code>/room_reset</code> 開始新對話。</p></div>
+              </section>
+            </div>
+
+            <div class="tab-panel" data-panel="media" hidden>
+              <section class="panel">
+                <div class="section-heading"><span class="section-number">01</span><div><h2>情境生圖</h2><p>依照對話情境生成圖片，並用基準圖維持角色一致性。</p></div><span class="section-tag">選用</span></div>
+                <div class="toggle-row image-service-toggle"><div><label for="image-service-enabled">我要使用生圖功能</label><p>需要 ComfyUI、NoobAI、IP-Adapter 與 CLIP Vision。開啟後可設定 API 並檢查依賴。</p></div><label class="switch"><input id="image-service-enabled" name="image_service_enabled" type="checkbox"><span></span></label></div>
+                <p id="image-disabled-note" class="field-help">目前僅使用文字、記憶與語音功能。已有生圖設定會保留，關閉期間不會連接生圖服務。</p>
+                <div id="image-service-config" class="image-service-config" hidden>
+                  <label class="field">ComfyUI API 網址<input name="comfyui_url" type="url" placeholder="http://192.168.1.100:8188"><span class="field-help">填入實際執行 ComfyUI 的電腦網址，本機通常是 http://127.0.0.1:8188。</span></label>
+                  <label class="field spaced">NoobAI Checkpoint 檔名<input name="comfyui_checkpoint" placeholder="NoobAI-XL-v1.1.safetensors"><span class="field-help">須與 ComfyUI 的 models/checkpoints 中已安裝的檔名一致。</span></label>
+                  <div class="form-grid spaced">
+                    <label class="field">IP-Adapter 模型檔名<input name="ipadapter_model" placeholder="ip_adapter_Noobtest_800000.bin"><span class="field-help">角色參考圖使用，須已安裝於 models/ipadapter。</span></label>
+                    <label class="field">CLIP Vision 模型檔名<input name="clip_vision_model" placeholder="CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors"><span class="field-help">參考圖編碼器，須已安裝於 models/clip_vision。</span></label>
+                  </div>
+                  <div class="tip"><span aria-hidden="true">ⓘ</span><p>這些依賴必須安裝在「ComfyUI API 所在的電腦」。使用遠端生圖時，這台 EXE 電腦不必安裝它們；工作台會檢查，不會自動下載或安裝。</p></div>
+                  <div class="image-check-actions"><button id="check-image-service" class="button secondary" type="button">檢查生圖服務與模型 ↗</button><span id="image-check-caption" class="field-help">可先儲存設定；啟動生圖 Bot 前，必須通過依賴檢查。</span></div>
+                  <p class="field-help">安裝檢查只確認 API、模型選單與節點，不會實際生成圖片或驗證權重完整性。</p>
+                  <div id="image-check-result" class="image-check-result" role="status" aria-live="polite" hidden><p id="image-check-summary"></p><ul id="image-check-list"></ul></div>
+                  <div class="tip"><span aria-hidden="true">✧</span><p>設定完成並啟動 Bot 後，在 Discord 使用 <code>/image enable</code> 開啟該房間的情境生圖；用 <code>/character</code> 管理角色卡、核准基準圖與相似度。</p></div>
+                </div>
+              </section>
+              <section class="panel"><div class="section-heading"><span class="section-number">02</span><div><h2>語音朗讀</h2><p>設定 Edge TTS 預設聲音，可在 Discord 內調整。</p></div><span class="section-tag">選用</span></div><label class="field">預設聲音<input name="tts_voice" list="tts-voices" placeholder="zh-TW-HsiaoChenNeural"><datalist id="tts-voices"><option value="zh-TW-HsiaoChenNeural">繁中 · 曉臻</option><option value="zh-TW-YunJheNeural">繁中 · 雲哲</option><option value="zh-TW-HsiaoYuNeural">繁中 · 曉雨</option><option value="en-US-AriaNeural">English · Aria</option><option value="ja-JP-NanamiNeural">日本語 · Nanami</option></datalist></label><p class="field-help">使用 /tts 啟用朗讀、切換聲音，或加入／離開語音頻道；朗讀服務需要網路。</p></section>
+            </div>
+
+            <div class="tab-panel" data-panel="logs" hidden>
+              <section class="panel log-panel"><div class="section-heading"><span class="section-number">↳</span><div><h2>執行日誌</h2><p>顯示目前這個機器人的最近輸出，每 5 秒更新。</p></div><button id="refresh-logs" class="button compact secondary" type="button">重新整理</button></div><pre id="runtime-logs" class="runtime-logs" tabindex="0">尚無執行紀錄。儲存設定後啟動機器人。</pre><div class="log-footer"><span id="log-updated">等待更新</span><label><input id="log-autoscroll" type="checkbox" checked> 自動捲動</label></div></section>
+            </div>
+          </form>
+        </div>
+
+        <aside class="inspector">
+          <section class="panel runtime-panel"><div class="inspector-heading"><h2>機器人控制</h2><span class="mini-tag">RUNTIME</span></div><p class="muted small">首次使用可直接「儲存並啟動」，之後隨時調整設定。</p><div class="runtime-detail"><span>狀態</span><span id="runtime-detail-status">未啟動</span></div><div class="runtime-detail"><span>程序 PID</span><code id="runtime-pid">—</code></div><div class="runtime-detail"><span>離開代碼</span><code id="runtime-exit">—</code></div><button id="save-start-bot" class="button primary full" type="button"><span aria-hidden="true">▷</span> 儲存並啟動</button><button id="start-bot" class="button secondary compact full" type="button">啟動已儲存設定</button><div class="runtime-buttons"><button id="restart-bot" class="button secondary" type="button">↻ 重新啟動</button><button id="stop-bot" class="button secondary" type="button">□ 停止</button></div><p id="runtime-help" class="field-help">新設定不會自動啟動機器人。</p><p id="desktop-runtime-note" class="field-help" hidden>桌面程式執行時，Bot 才會保持連線；關閉程式會停止本次啟動的 Bot。</p></section>
+          <div id="image-start-guide" class="image-start-guide" hidden><p id="image-start-status">已啟用生圖，啟動前會檢查 ComfyUI 與角色模型。</p><button id="open-image-settings" class="text-button" type="button">查看生圖設定與依賴 →</button></div>
+          <section class="quick-guide"><span class="guide-icon" aria-hidden="true">✳</span><h3>讓 Bot 加入社群</h3><ol><li>在 Developer Portal 建立 Application → Bot，取得 Token。</li><li>開啟 Message Content Intent，回到工作台驗證 Token，點邀請連結。</li><li>儲存並啟動後，用 /chat 或私訊；多人頻道用 /autochat enable，再 @Bot 或回覆它。</li></ol><a href="https://discord.com/developers/applications" target="_blank" rel="noopener noreferrer">開啟 Discord Developer Portal <span aria-hidden="true">↗</span></a><p class="field-help">邀請連結會帶入 bot、applications.commands 與聊天／語音所需權限；請確認目標頻道也允許 Bot 存取。</p></section>
+          <div class="danger-zone"><button id="delete-profile" class="text-button danger" type="button">刪除此機器人</button><p>請先停止機器人。刪除會永久移除此機器人的設定與資料。</p></div>
+        </aside>
+      </div>
+      <footer class="workspace-footer"><span>RELAY / 讓 AI 成為社群的一員</span><span id="storage-note">設定留在你的基礎設施中</span></footer>
+    </main>
+  </div>
+
+  <template id="provider-template">
+    <article class="provider-card">
+      <div class="provider-header"><span class="provider-icon" aria-hidden="true">◇</span><div><strong class="provider-title">模型供應商</strong><span class="provider-subtitle">OLLAMA</span></div><span class="probe-status">尚未測試</span><button class="remove-provider icon-button" type="button" aria-label="移除此供應商">×</button></div>
+      <label class="field provider-preset-field">快速設定<select class="provider-preset" aria-label="選擇模型服務快速設定"><option value="custom">自訂連線 · 保留目前設定</option><option value="local">Ollama · 這台電腦</option><option value="remote">Ollama · 其他電腦／輸入 IP</option><option value="openai">OpenAI</option><option value="xai">Grok · xAI</option><option value="deepseek">DeepSeek</option><option value="gemini">Google Gemini</option><option value="claude">Claude · Anthropic</option></select><span class="field-help">選擇服務會填好網址；雲端服務只需再填 API 金鑰。</span></label>
+      <div class="form-grid"><label class="field">顯示名稱<input data-key="name" placeholder="例如：本地 Ollama" required maxlength="100"></label><label class="field">服務類型<select data-key="type"><option value="ollama">Ollama · 本地／遠端</option><option value="openai">OpenAI 相容 · 雲端／自架</option><option value="gemini">Google Gemini · 原生 API</option><option value="anthropic">Claude · Anthropic 原生 API</option></select></label><label class="field">供應商 ID<input data-key="id" required pattern="[a-z][a-z0-9\-]{0,31}" maxlength="32" placeholder="例如：local-ollama"><span class="field-help">小寫字母開頭，可含數字及連字號，最多 32 字元。</span></label><label class="field">API 金鑰 <span class="optional">視服務需要</span><span class="secret-input"><input data-key="api_key" type="password" autocomplete="new-password" placeholder="本地 Ollama 通常不需要"><button class="reveal-secret" type="button" aria-label="顯示或隱藏 API 金鑰">顯示</button></span><span class="api-key-help field-help">金鑰僅保存在伺服器端。</span></label></div>
+      <label class="field spaced">API 網址／Ollama 主機 IP<input data-key="base_url" type="text" required placeholder="http://host.docker.internal:11434" autocomplete="off" spellcheck="false"><span class="base-url-help field-help">Ollama 填根網址，不需加 /api。</span></label>
+      <label class="clear-key" hidden><input type="checkbox" data-clear-key> 儲存時清除這個供應商已存的 API 金鑰</label>
+      <div class="provider-advanced" hidden>
+        <div class="form-grid">
+          <label class="field">回覆 Token 參數<select data-key="token_parameter"><option value="max_tokens">max_tokens · 一般模型</option><option value="max_completion_tokens">max_completion_tokens · 推理模型</option></select><span class="field-help">max_completion_tokens 包含推理 Token；使用推理模型時，可能需要提高「對話與記憶」中的單次回覆上限。</span></label>
+          <div class="field"><span>Temperature 參數</span><label class="advanced-checkbox"><input data-key="send_temperature" type="checkbox" checked> 傳送 temperature</label><span class="field-help">部分推理模型不接受此參數；服務回報不支援時，可關閉後重試。</span></div>
+        </div>
+      </div>
+      <label class="field spaced">模型清單 <span class="optional">可手動補充</span><textarea data-key="models" rows="2" placeholder="每行一個模型 ID，也可使用逗號分隔"></textarea><span class="field-help">連線測試會讀取可用模型；手動清單可用於不支援列出模型的 API。</span></label>
+      <div class="provider-footer"><span class="provider-result small muted">連線尚未測試</span><button class="probe-provider button secondary compact" type="button">測試連線 <span aria-hidden="true">↗</span></button></div>
+    </article>
+  </template>
+</body>
+</html>

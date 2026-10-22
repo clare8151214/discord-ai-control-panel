@@ -1,0 +1,35 @@
+# Optional bootstrap for a CI identity. Apply as an administrator; these are
+# deliberately NOT part of the application Kustomization.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: discord-ai-deployer
+  namespace: discord-ai
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: discord-ai-deployer
+  namespace: discord-ai
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["configmaps", "services", "persistentvolumeclaims", "serviceaccounts"]
+    verbs: ["get", "list", "create", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: discord-ai-deployer
+  namespace: discord-ai
+subjects:
+  - kind: ServiceAccount
+    name: discord-ai-deployer
+    namespace: discord-ai
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: discord-ai-deployer

@@ -1,0 +1,53 @@
+Discord AI Control Panel — third-party software notices
+======================================================
+
+This executable includes a Python interpreter and third-party Python packages.
+The licenses/ directory in the release archive contains their license texts,
+package metadata and a machine-readable dependency inventory. Identical notices
+are embedded in the executable's read-only PyInstaller resources.
+
+Python: https://www.python.org/ — Python Software Foundation License.
+PyInstaller: https://pyinstaller.org/ — GPL with the bootloader distribution
+exception. The exception permits distribution of bundled applications under
+their own license. See licenses/pyinstaller/ for the actual license and exception.
+pywebview: https://pywebview.flowrl.com/ — BSD license.
+pythonnet / clr-loader: see their individual bundled license texts.
+Discord.py, aiohttp, FastAPI, Pydantic, Uvicorn, edge-tts and other dependencies:
+see licenses/dependency-inventory.json and the corresponding package folders.
+The libopus binaries shipped by Discord.py are included for offline PCM voice
+encoding. Their original copyright and license notices are retained as
+discord/bin/COPYING and in the licenses/discord.py directory.
+
+Microsoft Edge WebView2 Runtime is NOT bundled. It is a Microsoft component
+installed separately under Microsoft's terms:
+https://developer.microsoft.com/microsoft-edge/webview2/
+
+FFmpeg
+------
+An unmodified FFmpeg executable is bundled as a separately launched program for
+Discord voice playback. The Gyan Windows builds used by the standard builder
+are GPLv3 builds. FFmpeg remains copyrighted by its respective contributors.
+The exact binary hash, version, configuration and build provenance are recorded
+in licenses/ffmpeg/ and build-info.json. The build's original LICENSE and README
+are included without modification.
+
+Upstream source: https://ffmpeg.org/download.html
+Windows build and corresponding source information:
+https://www.gyan.dev/ffmpeg/builds/
+Build infrastructure: https://github.com/GyanD/codexffmpeg
+Licensing information: https://ffmpeg.org/legal.html
+
+Redistributors must comply with the licenses of the binaries they distribute,
+including FFmpeg GPLv3 corresponding-source requirements. License texts and
+source links alone do not replace those obligations. When publishing a binary
+release, provide the complete corresponding source for that exact FFmpeg build
+(including enabled libraries and build scripts) using a GPLv3-compliant method.
+The project's CI builds an artifact; publication of release assets must not be
+treated as a grant to ignore these terms.
+
+Model weights and API services
+-----------------------------
+This executable does not contain language or image-generation model weights.
+Ollama, ComfyUI and closed-model APIs run separately and have their own terms.
+No Discord tokens, API keys, local .env files or user conversations are included
+by the packaging specification.

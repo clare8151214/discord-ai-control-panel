@@ -1,0 +1,76 @@
+name: Deploy approved image to Kubernetes
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Published immutable tag: sha- followed by the full 40-character commit"
+        required: true
+        type: string
+      kubectl_version:
+        description: "kubectl version compatible with the target cluster (within one minor)"
+        default: "v1.37.1"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Configure required reviewers on this GitHub Environment before use.
+    environment: production
+    steps:
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        with:
+          persist-credentials: false
+      - name: Validate deployment inputs
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          KUBECTL_VERSION: ${{ inputs.kubectl_version }}
+        shell: bash
+        run: |
+          [[ "$IMAGE_TAG" =~ ^sha-[0-9a-f]{40}$ ]]
+          [[ "$KUBECTL_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+      - name: Install verified kubectl
+        env:
+          KUBECTL_VERSION: ${{ inputs.kubectl_version }}
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/discord-ai-tools"
+          cd "$RUNNER_TEMP/discord-ai-tools"
+          curl --fail --silent --show-error --location --output kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          curl --fail --silent --show-error --location --output kubectl.sha256 "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl.sha256"
+          printf '%s  kubectl\n' "$(<kubectl.sha256)" | sha256sum --check
+          chmod 755 kubectl
+          printf '%s\n' "$RUNNER_TEMP/discord-ai-tools" >> "$GITHUB_PATH"
+      - name: Configure cluster credentials
+        env:
+          KUBECONFIG_BASE64: ${{ secrets.KUBECONFIG_BASE64 }}
+        shell: bash
+        run: |
+          test -n "$KUBECONFIG_BASE64"
+          umask 077
+          printf '%s' "$KUBECONFIG_BASE64" | base64 --decode > "$RUNNER_TEMP/discord-ai-kubeconfig"
+          printf 'KUBECONFIG=%s\n' "$RUNNER_TEMP/discord-ai-kubeconfig" >> "$GITHUB_ENV"
+      - name: Apply pinned image and wait for readiness
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        shell: bash
+        run: |
+          export DEPLOY_IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}:${IMAGE_TAG}"
+          bash scripts/deploy-k8s.sh
+      - name: Remove cluster credentials
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/discord-ai-kubeconfig" ]; then
+            rm -- "$RUNNER_TEMP/discord-ai-kubeconfig"
+          fi

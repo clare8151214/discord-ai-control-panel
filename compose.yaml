@@ -1,0 +1,36 @@
+services:
+  control-panel:
+    build: .
+    image: discord-ai-control-panel:local
+    init: false # The image already includes tini.
+    restart: unless-stopped
+    stop_grace_period: 30s
+    ports:
+      - "127.0.0.1:${CONTROL_PANEL_PORT:-8080}:8080"
+    environment:
+      CONTROL_PANEL_PASSWORD: "${CONTROL_PANEL_PASSWORD:?Set CONTROL_PANEL_PASSWORD (at least 12 characters) in .env.deploy}"
+      CONTROL_PANEL_HOST: 0.0.0.0
+      CONTROL_PANEL_PORT: "8080"
+      CONTROL_PANEL_DATA_DIR: /data/control-panel
+      CONTROL_PANEL_ALLOW_LEGACY_IMPORT: "false"
+    volumes:
+      - control-panel-data:/data/control-panel
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=256m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 2g
+    cpus: 2.0
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  control-panel-data:
